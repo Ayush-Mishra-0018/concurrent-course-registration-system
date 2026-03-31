@@ -13,12 +13,12 @@ echo "Compiling Academia Course Registration Portal..."
 
 # Compile the server
 echo "Compiling server..."
+
 gcc -Wall -pthread -o server server.c common_utils.c \
-    utils/file_ops.c utils/file_ops2.c utils/file_ops3.c utils/file_ops4.c \
-    controllers/admin_controller_fixed.c controllers/admin_controller2.c \
-    controllers/faculty_controller_fixed.c controllers/faculty_controller2_fixed.c \
-    controllers/student_controller_fixed.c controllers/student_controller2_fixed.c \
-    -pthread
+    utils/file_ops_core.c utils/file_ops_student.c utils/file_ops_course.c utils/file_ops_enrollment.c \
+    controllers/admin_controller_core.c controllers/admin_controller_ops.c \
+    controllers/faculty_controller_core.c controllers/faculty_controller_ops.c \
+    controllers/student_controller_core.c controllers/student_controller_ops.c
 
 # Compile the client
 echo "Compiling client..."
