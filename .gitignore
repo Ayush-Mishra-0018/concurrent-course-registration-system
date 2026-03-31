@@ -1,0 +1,19 @@
+# VS Code
+.vscode/
+
+# Build outputs (your compiled binaries)
+client
+server
+*.out
+*.exe
+
+# Object files
+*.o
+*.obj
+
+# Logs
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
