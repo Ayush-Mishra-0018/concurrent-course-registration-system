@@ -1,65 +1,150 @@
-# OS Mini Project – Course Registration Portal (Academia)  
+# Concurrent Course Registration System (C, Sockets, OS Concepts)
+
 Name – Ayush Mishra  
 Roll Number – IMT2023129  
 Batch – IMT2023  
-Date of Submission – 12th May, 2025  
 
 ---
 
-**server.c**  
-This is the main server-side program for the course registration system. It handles connections from multiple clients at once using threads. It uses socket programming and file locking to manage data like users and courses. It supports three roles: admin, faculty, and student. Each user sends requests to the server, and the server handles the logic based on the request.
+## Overview
 
-The server stores all data in files and uses file-level locking to prevent data corruption when multiple users are accessing or updating data at the same time. Authentication is handled through passwords. Based on the user type, different actions are allowed.
+This is a multi-client course registration system built using C. It uses socket programming and multithreading to handle multiple users at the same time.
 
----
-
-**client.c**  
-This is the client-side terminal program. A user runs this to connect to the server. Once connected, the user logs in and is shown options based on their role. For example, students can enroll in courses, faculty can manage courses, and admins can manage users.
-
-The client sends a request string to the server, waits for the response, and then shows the result on the terminal. All actions like login, enrolling, updating profile, etc., happen through the client talking to the server.
+The system simulates an academic portal with three roles: Admin, Faculty, and Student. Data is stored in files and protected using file locking to avoid conflicts when multiple users access the system concurrently.
 
 ---
 
-**Features by Role**
+## Core Components
 
-Admin can:
-- Add/update/remove faculty and student accounts.
-- View all courses and system stats.
+### server.c
 
-Faculty can:
-- Add, update, or remove courses they own.
-- See list of students enrolled in their courses.
-- Update their personal info or change password.
+This is the main server-side program.
 
-Student can:
-- See list of available courses.
-- Enroll in or drop courses.
-- Update their profile or change password.
+- Handles multiple client connections using threads  
+- Uses socket programming for communication  
+- Implements role-based logic (Admin, Faculty, Student)  
+- Stores data in files and uses file locking for consistency  
+- Processes client requests and sends responses  
 
 ---
 
-**How the system works**
+### client.c
 
-- The server listens on a port and accepts client connections.
-- Each client connects using TCP.
-- Once connected, they authenticate and perform operations.
-- Data is saved in files like `faculty.dat`, `student.dat`, `courses.dat`, etc.
-- The server uses locks to prevent multiple users from modifying the same file at the same time.
+This is the client-side terminal application.
+
+- Connects to the server using TCP  
+- Allows user login  
+- Displays options based on user role  
+- Sends requests to server and displays responses  
 
 ---
 
-## File Structure
+## Features by Role
 
-- `include/` - Header files
-- `utils/` - Utility functions (file operations, etc.)
-- `controllers/` - Controller logic for different user types
-- `client.c` - Client application
-- `server.c` - Server application
-- `data/` - Directory where data files are stored (created on first run)
+### Admin
 
-**How to Compile and Run**
+- Add, update, or remove faculty and student accounts  
+- View all courses and system data  
 
-## Running the Project
+### Faculty
 
-For Linux/WSL: ./build.sh
-For Windows:
+- Add, update, or remove courses  
+- View enrolled students  
+- Update profile and change password  
+
+### Student
+
+- View available courses  
+- Enroll in or drop courses  
+- Update profile and change password  
+
+---
+
+## System Architecture
+
+- Server listens on a fixed port and accepts connections  
+- Each client connects using TCP sockets  
+- Each connection is handled using a separate thread  
+- Data is stored in files (`student.dat`, `faculty.dat`, `courses.dat`, etc.)  
+- File locking is used to prevent concurrent modification issues  
+
+---
+
+## Project Structure
+
+    .
+    ├── server.c
+    ├── client.c
+    ├── common_utils.c/h
+    ├── controllers/
+    │   ├── admin_controller*
+    │   ├── faculty_controller*
+    │   └── student_controller*
+    ├── utils/
+    │   └── file_ops*
+    ├── include/
+    │   ├── constants.h
+    │   └── structures.h
+    ├── data/
+    ├── Makefile / build scripts
+
+---
+
+## Tech Stack
+
+- C  
+- POSIX Sockets  
+- pthreads  
+- File I/O + fcntl locking  
+- Linux / WSL / MinGW  
+
+---
+
+## How to Run
+
+### Linux / WSL
+
+    ./build.sh
+    ./server
+    ./client
+
+### Windows (MinGW)
+
+    build.bat
+    server.exe
+    client.exe
+
+---
+
+## Default Credentials
+
+- Username: admin  
+- Password: admin123  
+
+---
+
+## Current Limitations
+
+- Uses thread-per-client model (not scalable for high load)  
+- File-based storage limits performance  
+- No stress testing or benchmarking  
+- No crash recovery or fault tolerance  
+
+---
+
+## Future Improvements
+
+- Thread pool / event-driven concurrency  
+- Performance metrics (latency, throughput)  
+- Stress testing under high load  
+- Record-level locking  
+- Logging and monitoring  
+- Failure recovery mechanisms  
+
+---
+
+## Author
+
+Ayush Mishra  
+IMT2023129  
+IIIT Bangalore
