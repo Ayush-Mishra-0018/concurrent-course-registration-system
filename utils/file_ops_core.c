@@ -2,6 +2,7 @@
 #include <sys/file.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include "../metrics/lock_stats.h"
 
 // Forward declaration of get_all_admins function
 int get_all_admins(Admin *admin_list, int *count);
@@ -30,25 +31,14 @@ void init_data_files() {
     if (fd) fclose(fd);
 }
 
-// File locking operations
+// File locking operations — delegated to instrumented wrappers in metrics/lock_stats.c
+// This makes ALL existing file_ops_*.c lock calls automatically instrumented.
 int lock_file(int fd, int lock_type) {
-    struct flock lock;
-    lock.l_type = (lock_type == READ_LOCK) ? F_RDLCK : F_WRLCK;
-    lock.l_whence = SEEK_SET;
-    lock.l_start = 0;
-    lock.l_len = 0; // Lock entire file
-    
-    return fcntl(fd, F_SETLKW, &lock); // Wait until lock is acquired
+    return instrumented_lock_file(fd, lock_type);
 }
 
 int unlock_file(int fd) {
-    struct flock lock;
-    lock.l_type = F_UNLCK;
-    lock.l_whence = SEEK_SET;
-    lock.l_start = 0;
-    lock.l_len = 0; // Unlock entire file
-    
-    return fcntl(fd, F_SETLK, &lock);
+    return instrumented_unlock_file(fd);
 }
 
 // Admin file operations

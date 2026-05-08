@@ -28,9 +28,22 @@
 #include "controllers/student_controller.h"
 #include "utils/file_ops.h"
 #include "common_utils.h"
+#include "metrics/metrics.h"
+#include "metrics/lock_stats.h"
+#include "logging/logger.h"
 
 // Global variable to keep track of server socket
 int server_socket;
+
+/* ─── Periodic stats thread: prints metrics every 10 seconds ─── */
+static void *periodic_stats_thread(void *arg) {
+    (void)arg;
+    for (;;) {
+        sleep(10);
+        metrics_print_periodic();
+    }
+    return NULL;
+}
 
 // Utility functions for controllers are in common_utils.h/c
 
@@ -42,6 +55,12 @@ void *handle_client(void *arg) {
 #endif
     ClientInfo *client_info = (ClientInfo *)arg;
     int client_socket = client_info->socket_fd;
+
+    /* ── Observability: track session ── */
+    uint64_t session_start = time_now_ns();
+    metrics_client_connect();
+    unsigned long tid = (unsigned long)pthread_self();
+    int cid = client_socket;
     
     // Send welcome message
     char welcome_message[BUFFER_SIZE];
@@ -92,7 +111,14 @@ void *handle_client(void *arg) {
     
     // Send exit message
     send_message(client_socket, "EXIT\n");
-    
+
+    /* ── Record session metrics ── */
+    uint64_t session_ns = elapsed_ns(session_start);
+    metrics_record_session_latency(session_ns);
+    metrics_client_disconnect();
+    log_event(tid, cid, LOG_OP_LOGOUT, LOG_STATUS_OK,
+              session_ns / 1e6, NULL);
+
     // Close client socket and free memory
 #ifdef _WIN32
     closesocket(client_socket);
@@ -100,7 +126,7 @@ void *handle_client(void *arg) {
     close(client_socket);
 #endif
     free(client_info);
-    
+
     return NULL;
 }
 
@@ -108,6 +134,9 @@ void *handle_client(void *arg) {
 void handle_signal(int sig) {
     if (sig == SIGINT) {
         printf("\nShutting down server...\n");
+        metrics_print_summary();
+        lock_stats_print();
+        logger_close();
 #ifdef _WIN32
         closesocket(server_socket);
         WSACleanup();
@@ -135,7 +164,12 @@ int main() {
     // Register signal handler
     signal(SIGINT, handle_signal);
 #endif
-    
+
+    // Initialize metrics & logging subsystems
+    metrics_init();
+    lock_stats_init();
+    logger_init("logs/server_structured.log");
+
     // Initialize data files
     init_data_files();
     
@@ -177,7 +211,13 @@ int main() {
     
     printf("Server started on port %d\n", PORT);
     printf("Press Ctrl+C to stop the server\n");
-    
+    log_event(0, 0, "SERVER_START", LOG_STATUS_OK, 0.0, "Listening for connections");
+
+    /* Spawn periodic stats reporter (detached) */
+    pthread_t stats_tid;
+    pthread_create(&stats_tid, NULL, periodic_stats_thread, NULL);
+    pthread_detach(stats_tid);
+
     // Accept and handle client connections
     while (1) {
         struct sockaddr_in client_addr;

@@ -4,6 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 #include "../common_utils.h"
+#include "../metrics/metrics.h"
+#include "../logging/logger.h"
 
 // Student login function
 int student_login(int client_socket) {
@@ -14,28 +16,37 @@ int student_login(int client_socket) {
     // Prompt for student ID
     send_message(client_socket, "Enter Student ID: ");
     receive_input(client_socket, id_str, sizeof(id_str));
-    id_str[strcspn(id_str, "\n")] = 0; // Remove newline
+    id_str[strcspn(id_str, "\n")] = 0;
     int student_id = atoi(id_str);
     
     // Prompt for password
     send_message(client_socket, "Enter Password: ");
     receive_input(client_socket, password, sizeof(password));
-    password[strcspn(password, "\n")] = 0; // Remove newline
-    
+    password[strcspn(password, "\n")] = 0;
+
+    uint64_t t0 = time_now_ns();
     int result = authenticate_student(student_id, password);
+    uint64_t auth_ns = elapsed_ns(t0);
+    metrics_record_latency(OP_AUTH, auth_ns);
+    unsigned long tid = (unsigned long)pthread_self();
     
     if (result == SUCCESS) {
         Student student;
         get_student_by_id(student_id, &student);
         sprintf(buffer, "Login successful! Welcome, %s\n", student.name);
         send_message(client_socket, buffer);
+        metrics_record_request(1);
+        log_event(tid, client_socket, LOG_OP_LOGIN, LOG_STATUS_OK,
+                  auth_ns / 1e6, NULL);
         return student_id;
     } else if (result == WRONG_PASSWORD) {
         send_message(client_socket, "Wrong password! Login failed.\n");
     } else {
         send_message(client_socket, "Student not found or inactive! Login failed.\n");
     }
-    
+    metrics_record_request(0);
+    log_event(tid, client_socket, LOG_OP_AUTH_FAIL, LOG_STATUS_FAIL,
+              auth_ns / 1e6, NULL);
     return -1;
 }
 
@@ -60,15 +71,37 @@ void student_menu(int client_socket, int student_id) {
         choice = atoi(buffer);
         
         switch (choice) {
-            case 1:
+            case 1: {
+                uint64_t t0 = time_now_ns();
                 view_all_courses(client_socket);
+                metrics_record_latency(OP_COURSE_QUERY, elapsed_ns(t0));
+                log_event((unsigned long)pthread_self(), client_socket,
+                          LOG_OP_VIEW_COURSES, LOG_STATUS_OK,
+                          elapsed_ns(t0) / 1e6, NULL);
                 break;
-            case 2:
-                enroll_new_course(client_socket, student_id);
+            }
+            case 2: {
+                uint64_t t0 = time_now_ns();
+                int r = enroll_new_course(client_socket, student_id);
+                uint64_t ns = elapsed_ns(t0);
+                metrics_record_latency(OP_ENROLL, ns);
+                log_event((unsigned long)pthread_self(), client_socket,
+                          LOG_OP_ENROLL,
+                          r == SUCCESS ? LOG_STATUS_OK : LOG_STATUS_FAIL,
+                          ns / 1e6, NULL);
                 break;
-            case 3:
-                drop_course_handler(client_socket, student_id);
+            }
+            case 3: {
+                uint64_t t0 = time_now_ns();
+                int r = drop_course_handler(client_socket, student_id);
+                uint64_t ns = elapsed_ns(t0);
+                metrics_record_latency(OP_DROP, ns);
+                log_event((unsigned long)pthread_self(), client_socket,
+                          LOG_OP_DROP,
+                          r == SUCCESS ? LOG_STATUS_OK : LOG_STATUS_FAIL,
+                          ns / 1e6, NULL);
                 break;
+            }
             case 4:
                 view_enrolled_courses(client_socket, student_id);
                 break;
